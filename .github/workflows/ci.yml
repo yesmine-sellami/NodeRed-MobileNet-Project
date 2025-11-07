@@ -1,0 +1,62 @@
+name: CI/CD - NodeRed + AI Model
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test_and_deploy:
+    name: Test + Deploy locally
+    runs-on: self-hosted   # le pipeline tourne sur ton PC ou Raspberry
+
+    steps:
+      # 1️⃣ Récupérer le code du dépôt
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2️⃣ Configurer Node.js pour les tests d’irrigation
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install Node.js dependencies
+        run: |
+          npm install jest --save-dev
+
+      - name: Run Node.js irrigation tests
+        run: |
+          npx jest tests/testIrrigation.test.js --verbose
+
+      # 3️⃣ Configurer Python pour les tests IA
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.11
+
+      - name: Install Python dependencies
+        run: |
+          pip install tensorflow opencv-python numpy unittest-xml-reporting
+
+      - name: Run AI model tests
+        run: |
+          python -m unittest discover -s tests -p "testscript.py" -v
+
+      # 4️⃣ Étape de déploiement (si tout est OK)
+      - name: Deploy application locally
+        if: success()    # ✅ uniquement si les tests réussissent
+        run: |
+          echo "✅ Tous les tests sont passés, déploiement local en cours..."
+
+          # (Optionnel) redémarrer Node-RED si installé localement
+          echo "🔄 Redémarrage de Node-RED..."
+          pkill -f "node-red" || true
+          nohup node-red > node_red.log 2>&1 &
+
+          # 🚀 Lancer le script principal IA
+          echo "🧠 Lancement du script d’analyse IA..."
+          python scripts/scriptai.py > ai_output.log 2>&1 &
+
+          echo "✅ Déploiement terminé avec succès."
